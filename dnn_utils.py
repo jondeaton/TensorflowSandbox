@@ -1,9 +1,5 @@
 #!/usr/bin/env python
-"""
-File: dnn_utils
-Date: 4/14/18 
-Author: Jon Deaton (jdeaton@stanford.edu)
-"""
+
 
 import numpy as np
 from activations import *

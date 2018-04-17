@@ -1,9 +1,5 @@
 #!/usr/bin/env python
-"""
-File: unblur
-Date: 4/13/18 
-Author: Jon Deaton (jdeaton@stanford.edu)
-"""
+
 
 import tensorflow as tf
 import mahotas
