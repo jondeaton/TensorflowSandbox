@@ -24,7 +24,7 @@ def lasso(X, y):
     return X[idx, :], y
 
 
-def load_virus_data(virus_file="~/Datasets/viral_data/virus.kmer", bacteria_file="~/Datasets/viral_data/bacteria.kmer"):
+def load_virus_data(virus_file="~/Datasets/viruses/virus.kmer", bacteria_file="~/Datasets/viruses/bacteria.kmer"):
 
     def extract_X(file):
         content = np.loadtxt(file, delimiter=',', dtype=str)
