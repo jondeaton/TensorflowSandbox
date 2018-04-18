@@ -9,11 +9,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from NeuralNetwork import NeuralNetwork
+from basic.NeuralNetwork import NeuralNetwork
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 
-from sklearn.linear_model import LassoCV
 from sklearn import linear_model
 
 

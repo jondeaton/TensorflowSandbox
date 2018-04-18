@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 
-import numpy as np
-from activations import *
+from basic.activations import *
 
 
 def initialize_parameters(n_x, n_h, n_y):

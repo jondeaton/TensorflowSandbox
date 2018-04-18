@@ -5,9 +5,8 @@ Date: 4/14/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-import numpy as np
-from activations import *
-import progressbar
+from basic.activations import *
+
 
 class NeuralNetwork(object):
 

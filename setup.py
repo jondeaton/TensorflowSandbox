@@ -1,14 +1,15 @@
-#!/usr/bin/env python
-"""
-File: setup.py
-Date: 4/17/18 
-Author: Jon Deaton (jdeaton@stanford.edu)
-"""
+from setuptools import setup, find_packages
 
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()
+setup(name='trainer',
+      version='0.1',
+      packages=find_packages(),
+      description="Playing around with TensorFlow",
+      author="Jon Deaotn",
+      author_email="jonpdeaton@gmail.com",
+      license='MIT',
+      install_requires=[
+          "tensorflow",
+          "numpy",
+          ""
+      ],
+      zip_safe=False)

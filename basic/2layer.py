@@ -5,17 +5,11 @@ Date: 4/10/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-
-import numpy as np
 import matplotlib.pyplot as plt
-import sklearn
-import sklearn.datasets
-import sklearn.linear_model
 
-from activations import *
-from dnn_utils import *
+from basic.dnn_utils import *
 
-from planar_utils import plot_decision_boundary, load_planar_dataset, load_extra_datasets
+from basic.planar_utils import plot_decision_boundary, load_extra_datasets
 
 seed = 2
 
