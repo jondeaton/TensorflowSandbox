@@ -9,20 +9,14 @@ from collections import deque
 
 import gym
 
-gym.envs.register(
-    id='MountainCarExtraLong-v0',
-    entry_point='gym.envs.classic_control:MountainCarEnv',
-    max_episode_steps=1000,
-    reward_threshold=-110.0,
-)
-env = gym.make('MountainCarExtraLong-v0')
+env = gym.make("CartPole-v0")
 
 # --==:: Network Model ::==--
 # Input: two consecutive game states
 # Output: Q-values of actions
 
 model = Sequential()
-model.add(Dense(20, input_shape=(2, 2), activation="relu", kernel_initializer="normal"))
+model.add(Dense(20, input_shape=(2, 4), activation="relu", kernel_initializer="normal"))
 model.add(Flatten())
 model.add(Dense(18, activation="relu", kernel_initializer="normal"))
 model.add(Dense(10, activation="relu", kernel_initializer="normal"))
@@ -31,7 +25,7 @@ model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
 D = deque()  # Register where the actions will be stored
 inputs_shape = (0, 0)
-mb_size = 5000
+mb_size = 500
 
 
 def observe(observe_time=50000, epsilon=0.7):
@@ -103,11 +97,11 @@ def play(render=False):
 
 
 def main():
-    num_epochs = 20
+    num_epochs = 10
     for epoch in range(num_epochs):
         print("Learning round: %d" % epoch)
         epsilon = max(0, 0.5 - epoch / num_epochs)
-        observe(epsilon=epsilon)
+        observe(epsilon=epsilofn)
         learn()
         avg_reward = np.mean([play() for _ in range(10)])
         print("Average reward: %s" % avg_reward)

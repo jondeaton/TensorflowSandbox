@@ -11,36 +11,36 @@ import tensorflow as tf
 import viral_kmers
 
 
-def as_session(features, labels):
+# def as_session(features, labels):
+#     with tf.Session() as sess:
+#         hidden_layer = tf.layers.dense(inputs=features['x'], units=8)
+#         logits = tf.layers.dense(inputs=hidden_layer, units=1)
+#         loss = tf.losses.sigmoid_cross_entropy(labels, logits)
+#         optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+#         train_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step())
+#
+#         init = tf.global_variables_initializer()
+#         sess.run(init)
+#
+#         for i in range(1000):
+#             sess.run(train, {x: _x, y: _y})
+#
+#         trained_result = sess.run(loss, {x: features, y: _y})
+#         print("Training loss: ", trained_result)
 
-    with tf.Session() as sess:
-        hidden_layer = tf.layers.dense(inputs=features['x'], units=8)
-        logits = tf.layers.dense(inputs=hidden_layer, units=1)
-        loss = tf.losses.sigmoid_cross_entropy(labels, logits)
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-        train_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step())
-
-        # initialization
-        init = tf.global_variables_initializer()
-        sess.run(init)
-
-        for i in range(1000):
-            sess.run(train, {x: _x, y: _y})
-
-        trained_result = sess.run(loss, {x: features, y: _y})
-        print("Training loss: ", trained_result)
 
 def model_fn(features, labels, mode):
+    """
+    A version of this model made using tf.estimator (easy version)
 
-    # layers = [features['x']]
-    # num_units = [100, 16, 8]
-    # for l in range(1, len(num_units)):
-    #     layers.append(
-    #         tf.layers.dense(inputs=layers[l - 1], units=num_units[l])
-    #     )
-    # logits = tf.layers.dense(inputs=layers[-1], units=1)
+    :param features: Features of the dataset
+    :param labels: Labels of the dataset
+    :param mode: some tf.estimator.ModeKeys
+    :return: tf.estimator.EstimatorSpec
+    """
 
-    hidden_layer = tf.layers.dense(inputs=features['x'], units=8)
+    input_layer = features['x']
+    hidden_layer = tf.layers.dense(inputs=input_layer, units=8)
     logits = tf.layers.dense(inputs=hidden_layer, units=1)
 
     predictions = {
@@ -63,39 +63,6 @@ def model_fn(features, labels, mode):
     }
     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
 
-def oiwjef():
-    with tf.Session() as sess:
-        x_shape = (3, 1)
-        y_shape = (3, 1)
-        _x, _y, _W, _b = get_linear_relationship(x_shape, y_shape)
-
-        W = tf.Variable(np.random.random((y_shape[0], x_shape[0])), dtype=tf.float32)
-        b = tf.Variable(np.random.random(y_shape), dtype=tf.float32)
-        x = tf.placeholder(shape=x_shape, dtype=tf.float32)
-        model = tf.matmul(W, x) + b
-
-        y = tf.placeholder(shape=y_shape, dtype=tf.float32)
-        loss = tf.reduce_sum(tf.square(model - y))
-
-        optimizer = tf.train.GradientDescentOptimizer(0.001)
-        train = optimizer.minimize(loss)
-
-        # initialization
-        init = tf.global_variables_initializer()
-        sess.run(init)
-
-        result = sess.run(loss, {x: _x, y: _y})
-        print("Random: ", result)
-
-        for i in range(1000):
-            sess.run(train, {x: _x, y: _y})
-
-        print("Actual W, b:\n", _W, _b)
-        print("Learned:\n", sess.run([W, b]))
-
-        trained_result = sess.run(loss, {x: _x, y: _y})
-        print("Training loss: ", trained_result)
-
 
 def main():
     tensors_to_log = {"probabilities": "softmax_tensor"}
@@ -109,22 +76,21 @@ def main():
     eval_data = virus_data.eval.kmers
     eval_labels = virus_data.eval.labels
 
-    virus_classifier = tf.estimator.Estimator(model_fn=model_fn,
-                                              model_dir="/tmp/virus_deep_model")
+    virus_classifier = tf.estimator.Estimator(model_fn=model_fn)
 
     train_input_fn = tf.estimator.inputs.numpy_input_fn(x={"x": train_data},
                                                         y=train_labels,
-                                                        batch_size=100,
+                                                        batch_size=200,
                                                         num_epochs=None,
                                                         shuffle=True)
 
     virus_classifier.train(input_fn=train_input_fn,
-                           steps=10000,
+                           steps=1000000,
                            hooks=[logging_hook])
 
     eval_input_fn = tf.estimator.inputs.numpy_input_fn(x={"x": eval_data},
                                                        y=eval_labels,
-                                                       num_epochs=5,
+                                                       num_epochs=3,
                                                        shuffle=False)
 
     eval_results = virus_classifier.evaluate(input_fn=eval_input_fn)
