@@ -14,7 +14,7 @@ JOB_DIR="gs://$BUCKET_NAME/test-model"  # where to save
 MODULE="$DIR.model-trainer"
 PACKAGE="./$DIR"
 REGION="us-east1"
-RUNTIME="1.5"
+RUNTIME="1.0"
 
 virus_file="gs://$BUCKET_NAME/viruses.kmer"
 bacteria_file="gs://$BUCKET_NAME/bacteria.kmer"
@@ -27,6 +27,5 @@ gcloud ml-engine jobs submit training "$JOB_NAME" \
     --region "$REGION" \
     --config="$CLOUD_CONFIG" \
     -- \
-    --job-name "$JOB_NAME" \
-    --virus_file "$virus_file" \
-    --bacteria_file "$bacteria_file"
+    --virus-file "$virus_file" \
+    --bacteria-file "$bacteria_file"

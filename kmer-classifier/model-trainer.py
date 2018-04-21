@@ -15,6 +15,12 @@ import StringIO
 # Module for loading k-mer count files into numpy
 import viral_kmers
 
+import logging
+import argparse
+
+logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+
 
 # def as_session(features, labels):
 #     with tf.Session() as sess:
@@ -32,6 +38,7 @@ import viral_kmers
 #
 #         trained_result = sess.run(loss, {x: features, y: _y})
 #         print("Training loss: ", trained_result)
+
 
 
 def model_fn(features, labels, mode):
@@ -69,20 +76,51 @@ def model_fn(features, labels, mode):
     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
 
 
+def parse_args():
+    """
+    Parse the command line options for this file
+    :return: An argparse object containing parsed arguments
+    """
+    parser = argparse.ArgumentParser(description="Merge the Reddit data-set",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    info_options_group = parser.add_argument_group("Info")
+    info_options_group.add_argument("--job-dir", default=None, help="Directory of the job")
+
+    io_options_group = parser.add_argument_group("I/O Options")
+    io_options_group.add_argument("--virus-file", help="Virus k-mer counts")
+    io_options_group.add_argument("--bacteria-file", help="Bacteria k-mer counts")
+
+    options_group = parser.add_argument_group("Options")
+    options_group.add_argument('-p', '--pool-size', type=int, default=20, help="Thread-pool size")
+
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    console_options_group.add_argument('--debug', action='store_true', help='Debug Console')
+
+    args = parser.parse_args()
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    elif args.verbose:
+        logger.setLevel(logging.INFO)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+
+    return args
+
 def main():
     tensors_to_log = {"probabilities": "softmax_tensor"}
     logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=5)
 
-    flags = tf.app.flags
-    FLAGS = flags.FLAGS
+    args = parse_args()
 
-    flags.DEFINE_string('virus_file', None, 'Virus k-mer counts')
-    flags.DEFINE_string('bacteria_file', None, 'Bacteria k-mer counts')
-
-    virus_file = StringIO.StringIO(file_io.read_file_to_string(FLAGS.virus_file))
-    bacteria_file = StringIO.StringIO(file_io.read_file_to_string(FLAGS.bacteria_file))
-
-    print "Loading k-mer dataset..."
+    logger.info("Loading k-mer dataset...")
+    virus_file = StringIO.StringIO(file_io.read_file_to_string(args.virus_file))
+    bacteria_file = StringIO.StringIO(file_io.read_file_to_string(args.bacteria_file))
     virus_data = viral_kmers.load_dataset(virus_file=virus_file, bacteria_file=bacteria_file)
 
     train_data = virus_data.train.kmers
@@ -90,7 +128,7 @@ def main():
 
     eval_data = virus_data.eval.kmers
     eval_labels = virus_data.eval.labels
-    print "Loaded data set."
+    logger.info("Loaded data set.")
 
     virus_classifier = tf.estimator.Estimator(model_fn=model_fn)
     train_input_fn = tf.estimator.inputs.numpy_input_fn(x={"x": train_data},
