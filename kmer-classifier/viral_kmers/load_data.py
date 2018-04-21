@@ -8,6 +8,10 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import os
 import numpy as np
 
+# Get the path to the data files
+dir = os.path.dirname(__file__)
+default_virus_file = os.path.join(dir, "virus.kmer")
+default_bacteria_file = os.path.join(dir, "bacteria.kmer")
 
 def extract_kmers(file, column_wise=False):
     """
@@ -58,12 +62,21 @@ class DataSet(object):
         eval_idx = idx[:eval_size]
         train_idx = idx[eval_size:]
 
-        self.train = DataSetSlice(self.kmers[:, train_idx].T,
-                                  self.labels[:, train_idx].T)
+        self.train = DataSetSlice(self.kmers[:, train_idx],
+                                  self.labels[:, train_idx])
 
-        self.eval = DataSetSlice(self.kmers[:, eval_idx].T,
-                                 self.labels[:, eval_idx].T)
+        self.eval = DataSetSlice(self.kmers[:, eval_idx],
+                                 self.labels[:, eval_idx])
 
 
-def load_dataset(virus_file="viral_kmers/virus.kmer", bacteria_file="viral_kmers/bacteria.kmer"):
+def load_dataset(virus_file=default_virus_file, bacteria_file=default_bacteria_file):
+    """
+    Loads the k-mer data set
+
+    :param virus_file: The file containing the virus k-mer counts
+    :param bacteria_file: The file containing the bacteria k-mer counts
+    :return: A DataSet object containing the loaded data
+    """
+    virus_file = default_bacteria_file if virus_file is None else virus_file
+    bacteria_file = default_bacteria_file if bacteria_file is None else bacteria_file
     return DataSet(virus_file, bacteria_file)
