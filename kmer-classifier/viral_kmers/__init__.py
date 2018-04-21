@@ -6,4 +6,4 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
 import numpy as np
-from viral_kmers.load_data import *
+from load_data import *

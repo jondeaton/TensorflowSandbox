@@ -9,6 +9,22 @@ import os
 import numpy as np
 
 
+def extract_kmers(file, column_wise=False):
+    """
+    Reads a k-mer file into a numpy array
+
+    :param file: Path to the file or StringIO containing the k-mer counts
+    :param column_wise: If true, then each k-mer set will be a column
+    :return: Numpy array with each set of k-mers as a row or column
+    """
+    content = np.loadtxt(file, delimiter=',', dtype=str)
+
+    counts = content[:, 1:].astype(float)
+    for i in range(counts.shape[0]):
+        counts[i, :] /= np.sum(counts[i, :])
+    return counts.T if column_wise else counts
+
+
 class DataSetSlice(object):
     def __init__(self, kmers, labels):
         self.kmers = kmers
@@ -17,21 +33,12 @@ class DataSetSlice(object):
 
 class DataSet(object):
     def __init__(self, virus_file, bacteria_file):
-        virus_file = os.path.expanduser(virus_file)
-        bacteria_file = os.path.expanduser(bacteria_file)
         self.kmers, self.labels = self._load(virus_file, bacteria_file)
         self._setup_slices()
 
     def _load(self, virus_file, bacteria_file):
-        def extract_X(file):
-            content = np.loadtxt(file, delimiter=',', dtype=str)
-            counts = content[:, 1:].astype(float)
-            for i in range(counts.shape[0]):
-                counts[i, :] /= np.sum(counts[i, :])
-            return counts.T
-
-        self.X_vir = extract_X(virus_file)
-        self.X_bac = extract_X(bacteria_file)
+        self.X_vir = extract_kmers(virus_file, column_wise=True)
+        self.X_bac = extract_kmers(bacteria_file, column_wise=True)
         X = np.concatenate((self.X_vir, self.X_bac), axis=1)
 
         num_vir = self.X_vir.shape[1]

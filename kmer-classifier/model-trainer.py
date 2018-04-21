@@ -8,6 +8,11 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import numpy as np
 import tensorflow as tf
 
+# For reading TensorFlow things
+from tensorflow.python.lib.io import file_io
+import StringIO
+
+# Module for loading k-mer count files into numpy
 import viral_kmers
 
 
@@ -68,16 +73,26 @@ def main():
     tensors_to_log = {"probabilities": "softmax_tensor"}
     logging_hook = tf.train.LoggingTensorHook(tensors=tensors_to_log, every_n_iter=5)
 
-    virus_data = viral_kmers.load_dataset()
+    flags = tf.app.flags
+    FLAGS = flags.FLAGS
+
+    flags.DEFINE_string('virus_file', None, 'Virus k-mer counts')
+    flags.DEFINE_string('bacteria_file', None, 'Bacteria k-mer counts')
+
+    virus_file = StringIO.StringIO(file_io.read_file_to_string(FLAGS.virus_file))
+    bacteria_file = StringIO.StringIO(file_io.read_file_to_string(FLAGS.bacteria_file))
+
+    print "Loading k-mer dataset..."
+    virus_data = viral_kmers.load_dataset(virus_file=virus_file, bacteria_file=bacteria_file)
 
     train_data = virus_data.train.kmers
     train_labels = virus_data.train.labels
 
     eval_data = virus_data.eval.kmers
     eval_labels = virus_data.eval.labels
+    print "Loaded data set."
 
     virus_classifier = tf.estimator.Estimator(model_fn=model_fn)
-
     train_input_fn = tf.estimator.inputs.numpy_input_fn(x={"x": train_data},
                                                         y=train_labels,
                                                         batch_size=200,
@@ -85,7 +100,7 @@ def main():
                                                         shuffle=True)
 
     virus_classifier.train(input_fn=train_input_fn,
-                           steps=1000000,
+                           steps=10000,
                            hooks=[logging_hook])
 
     eval_input_fn = tf.estimator.inputs.numpy_input_fn(x={"x": eval_data},

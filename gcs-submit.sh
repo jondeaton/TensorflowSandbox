@@ -3,17 +3,21 @@
 
 DIR="kmer-classifier"
 
-timestamp=$(date +%s)
+timestamp=`date +%s`
+
+PROJECT_ID=`gcloud config list project --format "value(core.project)"`
 
 JOB_NAME="kmer_classifier_job_$timestamp"
 BUCKET_NAME="jons-gcs-123345454"
 CLOUD_CONFIG="$DIR/cloudml-gpu.yaml"
-JOB_DIR="gs://jons-gcs-123345454/test-model"  # where to save
+JOB_DIR="gs://$BUCKET_NAME/test-model"  # where to save
 MODULE="$DIR.model-trainer"
 PACKAGE="./$DIR"
 REGION="us-east1"
-RUNTIME="1.2"
-TRAIN_FILE="gs://jons-gcs-123345454/bacteria.kmer"
+RUNTIME="1.5"
+
+virus_file="gs://$BUCKET_NAME/viruses.kmer"
+bacteria_file="gs://$BUCKET_NAME/bacteria.kmer"
 
 gcloud ml-engine jobs submit training "$JOB_NAME" \
     --job-dir "$JOB_DIR" \
@@ -23,5 +27,6 @@ gcloud ml-engine jobs submit training "$JOB_NAME" \
     --region "$REGION" \
     --config="$CLOUD_CONFIG" \
     -- \
-    --train-file "$TRAIN_FILE" \
-    --job-name "$JOB_NAME"
+    --job-name "$JOB_NAME" \
+    --virus_file "$virus_file" \
+    --bacteria_file "$bacteria_file"
