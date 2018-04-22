@@ -7,6 +7,14 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 
 import numpy as np
 from activations import *
+import math
+
+def is_power(num, base):
+    if base == 1 and num != 1: return False
+    if base == 1 and num == 1: return True
+    if base == 0 and num != 1: return False
+    power = int (math.log(num, base) + 0.5)
+    return base ** power == num
 
 
 class NeuralNetwork(object):
@@ -27,7 +35,17 @@ class NeuralNetwork(object):
         self.dW = [np.empty((0, 0)) for _ in range(self.L)]
         self.db = [np.empty((0, 0)) for _ in range(self.L)]
 
-    def train(self, X, Y, iterations=2000, learning_rate=0.0075):
+        self.drop = [np.empty((0, 0)) for _ in range(self.L)]
+
+        self.regularize = False
+        self.lambd = 1
+
+    def train(self, X, Y, iterations=20000, learning_rate=0.0075,
+              regularize=False,
+              dropout=False):
+        self.regularize = regularize
+        self.dropout = dropout
+
         costs = []
         self.initialize_parameters()
         self.A[0] = X
@@ -37,9 +55,9 @@ class NeuralNetwork(object):
             self.back_prop(AL, Y)
             self.parameter_update(learning_rate)
 
-            learning_rate = max(0.05, learning_rate * 0.9999)
+            learning_rate = max(0.0075, learning_rate * 0.9999)
 
-            if i % 100 == 0:
+            if i in [0, 1, 2] or is_power(i, 10) or i % (iterations / 100) == 0:
                 accuracy = self.compute_accuracy(self.predict(X), Y)
                 print("Iteration  %d \t cost: %s \t accuracy: %s" % (i, costs[-1], accuracy))
 
@@ -50,21 +68,26 @@ class NeuralNetwork(object):
 
     def initialize_parameters(self):
         for l in range(1, self.L):
-            # Initialize Bias to zero
+            # Initialize bias to zero
             self.b[l] = np.zeros((self.dimensions[l], 1))
 
+            # He Initialization
             # Initialize weights to normal distribution with variance
             # equal to the size of the previous layer in order to keep
             # the variance of activations constant between layers of the network
-            n_prev = self.dimensions[l - 1]
-            self.W[l] = np.sqrt(n_prev) * np.random.randn(self.dimensions[l], self.dimensions[l - 1])
+            self.W[l] = np.random.randn(self.dimensions[l], self.dimensions[l - 1])
+            self.W[l] *= np.sqrt(2 / self.dimensions[l - 1])
 
-    def forward_prop(self, X):
+    def forward_prop(self, X, keep_prob=1.0):
         self.A[0] = X
         for l in range(1, self.L - 1):
             W, b = self.W[l], self.b[l]
             self.Z[l] = np.dot(W, self.A[l - 1]) + b
             self.A[l] = relu(self.Z[l])
+
+            # todo: this is broken
+            # self.drop[l] = np.random.rand(self.A[l].shape[0], self.A[l].shape[1]) < keep_prob
+            # self.A[l] = np.multiply(self.A[l], self.drop[l]) / keep_prob
 
         ZL = np.dot(self.W[self.L - 1], self.A[self.L - 2]) + self.b[self.L - 1]
         AL = sigmoid(ZL)
@@ -93,6 +116,9 @@ class NeuralNetwork(object):
 
         m = A_prev.shape[1]
         dW = np.dot(dZ, A_prev.T) / m
+        if self.regularize:
+            dW += self.lambd * W / m
+
         db = np.sum(dZ, axis=1, keepdims=True) / m
         dA_prev = np.dot(W.T, dZ)
         return dA_prev, dW, db
@@ -104,7 +130,12 @@ class NeuralNetwork(object):
 
     def compute_cost(self, AL, Y):
         cost = - np.sum(Y * np.log(AL) + (1 - Y) * np.log(1 - AL), axis=1) / Y.shape[1]
-        return float(np.squeeze(cost))
+        cost = float(np.squeeze(cost))
+        if self.regularize:
+            m = Y.shape[0]
+            k = self.lambd / (2 * m)
+            cost += k * sum(map(lambda w: np.sum(np.square(w)), self.W))
+        return cost
 
     def compute_accuracy(self, predictions, Y):
         return np.sum(predictions == Y) / Y.shape[1]

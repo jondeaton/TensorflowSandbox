@@ -7,13 +7,14 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 
 import os
 import numpy as np
+
+from numpy.linalg import norm
+
+from sklearn.decomposition import PCA
+from sklearn import linear_model
 import matplotlib.pyplot as plt
 
-from basic.NeuralNetwork import NeuralNetwork
-from sklearn.decomposition import PCA
-
-from sklearn import linear_model
-
+from NeuralNetwork import NeuralNetwork
 
 def lasso(X, y):
     lassocv = linear_model.LassoCV()
@@ -57,13 +58,30 @@ def load_simple_data():
 
     Y1 = np.zeros((1, X1.shape[1]), dtype=int)
     Y2 = np.ones((1, X2.shape[1]), dtype=int)
-    Y = np.concatenate((Y1, Y2), axis=1)
+    y = np.concatenate((Y1, Y2), axis=1)
 
-    return X, Y
+    return X, y
+
+
+def load_ring_data():
+
+    X1 = np.random.randn(2, 500)
+    X1 = X1[:, norm(X1, axis=0) < 2]
+    X1 = X1[:, norm(X1, axis=0) > 1]
+
+    X2 = np.random.randn(2, 500)
+    X2 = X2[:, norm(X2, axis=0) > 2]
+    X2 = X2[:, norm(X2, axis=0) < 3]
+
+    X = np.concatenate((X1, X2), axis=1)
+
+    y1 = np.zeros((1, X1.shape[1]), dtype=int)
+    y2 = np.ones((1, X2.shape[1]), dtype=int)
+    y = np.concatenate((y1, y2), axis=1)
+    return X, y
 
 
 def show_data(X, Y):
-
     if X.shape[0] > 2:
         v = PCA(n_components=2).fit_transform(X.T)
         # v = TSNE(n_components=2).fit_transform(X.T)
@@ -101,24 +119,28 @@ def sample(X, y, n_samples):
 
 
 def main():
-    X, y = load_virus_data()
+    # X, y = load_virus_data()
     # X, y = load_simple_data()
+    X, y = load_ring_data()
 
     # X, y = sample(X, y, 500)
     # X = PCA(n_components=10).fit_transform(X.T).T
 
-    X, y = lasso(X, y)
+    # X, y = lasso(X, y)
     show_data(X, y)
 
-    print("Featured: %d" % X.shape[0])
+    print("Features: %d" % X.shape[0])
     nx = X.shape[0]
     ny = y.shape[0]
     arch = [nx, 50, 8, ny]
     model = NeuralNetwork(arch)
 
-    costs = model.train(X, y, iterations=10000000, learning_rate=0.3)
+    costs = model.train(X, y,
+                        iterations=10000,
+                        learning_rate=0.002,
+                        regularize=True)
 
-    # plot_decision_boundary(model.predict, X, y)
+    plot_decision_boundary(model.predict, X, y)
 
     plt.figure()
     plt.plot(costs)
