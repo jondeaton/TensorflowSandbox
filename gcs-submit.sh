@@ -30,4 +30,5 @@ gcloud ml-engine jobs submit training "$JOB_NAME" \
     -- \
     --virus-file "$virus_file" \
     --bacteria-file "$bacteria_file" \
-    --iterations 100000
+    --iterations 1000000 \
+    --log=DEBUG

@@ -6,6 +6,7 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
 import os
+import sys
 import numpy as np
 import tensorflow as tf
 
@@ -141,33 +142,32 @@ def parse_args():
 
     info_options_group = parser.add_argument_group("Info")
     info_options_group.add_argument("--job-dir", default=None, help="Directory of the job")
+    info_options_group.add_argument("-cloud", "--cloud", action="store_true", help="Set true if running in cloud")
 
-    io_options_group = parser.add_argument_group("I/O Options")
+    io_options_group = parser.add_argument_group("I/O")
     io_options_group.add_argument("--virus-file", help="Virus k-mer counts")
     io_options_group.add_argument("--bacteria-file", help="Bacteria k-mer counts")
 
-    options_group = parser.add_argument_group("Options")
+    options_group = parser.add_argument_group("General")
     options_group.add_argument("--simple", action="store_true", help="Run the simple way")
     options_group.add_argument("-i", "--iterations", type=int, default=1000, help="Number of iterations")
     options_group.add_argument('-p', '--pool-size', type=int, default=20, help="Thread-pool size")
 
-    console_options_group = parser.add_argument_group("Console Options")
-    console_options_group.add_argument('-v', '--verbose', action='store_true', help='verbose output')
-    console_options_group.add_argument('--debug', action='store_true', help='Debug Console')
-    console_options_group.add_argument('--log', dest="log_level",default="WARNING", help="Logging level")
-    console_options_group.add_argument('--log-file', default="model.log", help="Log file")
+    logging_options_group = parser.add_argument_group("Logging")
+    logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
+    logging_options_group.add_argument('--log-file', default="model.log", help="Log file")
 
     args = parser.parse_args()
 
     global logger
     logger = logging.getLogger('root')
 
-    if args.debug:
-        log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
-    elif args.verbose:
-        log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
-    else:
-        log_formatter = logging.Formatter('[log][%(levelname)s] - %(message)s')
+    # Logging level configuration
+    log_level = getattr(logging, args.log_level.upper())
+    if not isinstance(log_level, int):
+        raise ValueError('Invalid log level: %s' % args.log_level)
+
+    log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
 
     # For the log file...
     file_handler = logging.FileHandler(args.log_file)
@@ -175,14 +175,11 @@ def parse_args():
     logger.addHandler(file_handler)
 
     # For the console
-    console_handler = logging.StreamHandler()
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_formatter)
     logger.addHandler(console_handler)
 
-    # Logging level configuration
-    log_level = getattr(logging, args.log_level.upper())
-    if not isinstance(log_level, int):
-        raise ValueError('Invalid log level: %s' % args.log_level)
+
     logger.setLevel(log_level)
 
     return args
@@ -218,7 +215,6 @@ def main():
         run_with_training_wheels(train_data, train_labels, eval_data, eval_labels)
     else:
         logger.info("Running for %d iterations" % args.iterations)
-        print("This is just a simple test ")
         as_session(train_data.T, train_labels, eval_data.T, eval_labels,
                    num_epochs=args.iterations)
 
