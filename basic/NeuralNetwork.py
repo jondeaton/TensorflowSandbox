@@ -5,7 +5,8 @@ Date: 4/14/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-from basic.activations import *
+import numpy as np
+from activations import *
 
 
 class NeuralNetwork(object):
@@ -49,8 +50,14 @@ class NeuralNetwork(object):
 
     def initialize_parameters(self):
         for l in range(1, self.L):
-            self.W[l] = 0.01 * np.random.randn(self.dimensions[l], self.dimensions[l - 1])
+            # Initialize Bias to zero
             self.b[l] = np.zeros((self.dimensions[l], 1))
+
+            # Initialize weights to normal distribution with variance
+            # equal to the size of the previous layer in order to keep
+            # the variance of activations constant between layers of the network
+            n_prev = self.dimensions[l - 1]
+            self.W[l] = np.sqrt(n_prev) * np.random.randn(self.dimensions[l], self.dimensions[l - 1])
 
     def forward_prop(self, X):
         self.A[0] = X

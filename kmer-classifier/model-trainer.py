@@ -39,7 +39,7 @@ def as_session(train_data, train_labels, eval_data, eval_labels, num_epochs=1000
 
         loss = tf.losses.sigmoid_cross_entropy(train_labels.T, logits)
 
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.3)
         train_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step())
 
         init = tf.global_variables_initializer()
@@ -57,7 +57,7 @@ def as_session(train_data, train_labels, eval_data, eval_labels, num_epochs=1000
 
         for i in range(num_epochs):
             sess.run(train_op, feed_dict={input_layer: train_data})
-            if i % (num_epochs / 10) == 0:
+            if i % (num_epochs / 20) == 0:
                 trained_result = sess.run(loss, feed_dict={input_layer: train_data})
                 logger.info("Training loss: %f" % trained_result)
 
@@ -147,6 +147,7 @@ def parse_args():
     io_options_group = parser.add_argument_group("I/O")
     io_options_group.add_argument("--virus-file", help="Virus k-mer counts")
     io_options_group.add_argument("--bacteria-file", help="Bacteria k-mer counts")
+    io_options_group.add_argument("--test", action="store_true", help="Test it out")
 
     options_group = parser.add_argument_group("General")
     options_group.add_argument("--simple", action="store_true", help="Run the simple way")
@@ -178,7 +179,6 @@ def parse_args():
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(log_formatter)
     logger.addHandler(console_handler)
-
 
     logger.setLevel(log_level)
 
