@@ -19,11 +19,8 @@ import viral_kmers
 import logging
 import argparse
 
-logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
-logger = logging.getLogger(__name__)
 
-
-def as_session(train_data, train_labels, eval_data, eval_labels, num_epochs=10000):
+def as_session(train_data, train_labels, eval_data, eval_labels, num_epochs=1000000):
 
     with tf.Session() as sess:
         input_layer = tf.reshape(train_data, [-1, 256])
@@ -151,23 +148,42 @@ def parse_args():
 
     options_group = parser.add_argument_group("Options")
     options_group.add_argument("--simple", action="store_true", help="Run the simple way")
+    options_group.add_argument("-i", "--iterations", type=int, default=1000, help="Number of iterations")
     options_group.add_argument('-p', '--pool-size', type=int, default=20, help="Thread-pool size")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     console_options_group.add_argument('--debug', action='store_true', help='Debug Console')
+    console_options_group.add_argument('--log', dest="log_level",default="WARNING", help="Logging level")
+    console_options_group.add_argument('--log-file', default="model.log", help="Log file")
 
     args = parser.parse_args()
 
+    global logger
+    logger = logging.getLogger('root')
+
     if args.debug:
-        logger.setLevel(logging.DEBUG)
-        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
     elif args.verbose:
-        logger.setLevel(logging.INFO)
-        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+        log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
     else:
-        logger.setLevel(logging.WARNING)
-        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+        log_formatter = logging.Formatter('[log][%(levelname)s] - %(message)s')
+
+    # For the log file...
+    file_handler = logging.FileHandler(args.log_file)
+    file_handler.setFormatter(log_formatter)
+    logger.addHandler(file_handler)
+
+    # For the console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    logger.addHandler(console_handler)
+
+    # Logging level configuration
+    log_level = getattr(logging, args.log_level.upper())
+    if not isinstance(log_level, int):
+        raise ValueError('Invalid log level: %s' % args.log_level)
+    logger.setLevel(log_level)
 
     return args
 
@@ -177,13 +193,13 @@ def main():
 
     logger.info("Loading k-mer data set...")
 
-    if args.virus_file is not None and os.path.exists(args.virus_file):
+    if args.virus_file is not None:
         virus_file = StringIO.StringIO(file_io.read_file_to_string(args.virus_file))
     else:
         logger.info("Loading default virus k-mer file.")
         virus_file = None
 
-    if args.bacteria_file is not None and os.path.exists(args.bacteria_file):
+    if args.bacteria_file is not None:
         bacteria_file = StringIO.StringIO(file_io.read_file_to_string(args.bacteria_file))
     else:
         logger.info("Loading default bacteria k-mer file.")
@@ -201,7 +217,10 @@ def main():
     if args.simple:
         run_with_training_wheels(train_data, train_labels, eval_data, eval_labels)
     else:
-        as_session(train_data.T, train_labels, eval_data.T, eval_labels)
+        logger.info("Running for %d iterations" % args.iterations)
+        print("This is just a simple test ")
+        as_session(train_data.T, train_labels, eval_data.T, eval_labels,
+                   num_epochs=args.iterations)
 
 
 if __name__ == "__main__":

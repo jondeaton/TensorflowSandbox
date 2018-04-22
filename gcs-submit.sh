@@ -15,6 +15,7 @@ MODULE="$DIR.model-trainer"
 PACKAGE="./$DIR"
 REGION="us-east1"
 RUNTIME="1.0"
+LOG="gs://$BUCKET_NAME/"
 
 virus_file="gs://$BUCKET_NAME/viruses.kmer"
 bacteria_file="gs://$BUCKET_NAME/bacteria.kmer"
@@ -28,4 +29,5 @@ gcloud ml-engine jobs submit training "$JOB_NAME" \
     --config="$CLOUD_CONFIG" \
     -- \
     --virus-file "$virus_file" \
-    --bacteria-file "$bacteria_file"
+    --bacteria-file "$bacteria_file" \
+    --iterations 100000
