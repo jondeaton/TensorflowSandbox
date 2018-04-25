@@ -137,7 +137,7 @@ def parse_args():
     Parse the command line options for this file
     :return: An argparse object containing parsed arguments
     """
-    parser = argparse.ArgumentParser(description="Merge the Reddit data-set",
+    parser = argparse.ArgumentParser(description="Train model on classifying viruses",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     info_options_group = parser.add_argument_group("Info")
