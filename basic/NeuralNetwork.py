@@ -8,6 +8,8 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 import numpy as np
 from activations import *
 import math
+from collections import namedtuple
+
 
 def is_power(num, base):
     if base == 1 and num != 1: return False
@@ -15,6 +17,36 @@ def is_power(num, base):
     if base == 0 and num != 1: return False
     power = int (math.log(num, base) + 0.5)
     return base ** power == num
+
+from enum import Enum
+
+
+class OptimizationStrategy(Enum):
+    normal = 1
+    momentum = 2
+    rmsprop = 3
+    adam = 4
+
+
+class LearningParameters(object):
+
+    def __init__(self):
+        self. iterations = 20000
+        self.learning_rate = 0.0075
+
+        self.regularize = False
+        self.lambd = 1
+
+        self.dropout = False
+        self.mini_batch_size = 256
+
+        self.optimization_strategy = OptimizationStrategy.normal
+
+        self.beta1 = 0.9
+        self.beta2 = 0.999
+
+        self.batch_norm = False
+
 
 
 class NeuralNetwork(object):
@@ -40,9 +72,12 @@ class NeuralNetwork(object):
         self.regularize = False
         self.lambd = 1
 
+        self.dropout = False
+
     def train(self, X, Y, iterations=20000, learning_rate=0.0075,
               regularize=False,
               dropout=False):
+
         self.regularize = regularize
         self.dropout = dropout
 
