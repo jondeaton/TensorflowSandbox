@@ -12,6 +12,7 @@ import os, sys
 import argparse
 import logging
 import functools
+import time
 
 import numpy as np
 import tensorflow as tf
@@ -20,10 +21,11 @@ import matplotlib.pyplot as plt
 from tensorflow.python.framework import ops
 from tf_utils import load_dataset, random_mini_batches, convert_to_one_hot, predict
 
+
 logger = logging.getLogger()
 
-tensorboard_dir = "tensorboard"
-
+tensorboard_dir = "tensorboard/job_signs_%s" % time.time()
+save_file = "./trained_model.ckpt-data"
 
 def lazy_property(function):
     # from: https://danijar.com/structuring-your-tensorflow-models/
@@ -119,39 +121,51 @@ def train(X_train, Y_train, X_test, Y_test):
     X = tf.placeholder(tf.float32, shape=(n_x, None))
     Y = tf.placeholder(tf.float32, shape=(n_y, None))
 
+    def xavier():
+        return tf.contrib.layers.xavier_initializer()
+
+    def zeros():
+        tf.zeros_initializer()
+
     # First hidden layer
     with tf.name_scope('h1') as scope:
-        W1 = tf.get_variable("W1", [n_h1, n_x],
-                             initializer=tf.contrib.layers.xavier_initializer())
-        b1 = tf.get_variable("b1", [n_h1, 1],
-                             initializer=tf.zeros_initializer())
+        W1 = tf.get_variable("W1", [n_h1, n_x], initializer=xavier())
+        b1 = tf.get_variable("b1", [n_h1, 1], initializer=zeros())
         Z1 = tf.matmul(W1, X) + b1
         A1 = tf.nn.relu(Z1)
+        tf.summary.histogram("weights", W1)
+        tf.summary.histogram("biases", b1)
+        tf.summary.histogram("activations", A1)
 
     # Second hidden layer
     with tf.name_scope('h2') as scope:
-        W2 = tf.get_variable("W2", [n_h2, n_h1],
-                             initializer=tf.contrib.layers.xavier_initializer())
-        b2 = tf.get_variable("b2", [n_h2, 1],
-                             initializer=tf.zeros_initializer())
+        W2 = tf.get_variable("W2", [n_h2, n_h1], initializer=xavier())
+        b2 = tf.get_variable("b2", [n_h2, 1],initializer=zeros())
         Z2 = tf.matmul(W2, A1) + b2
         A2 = tf.nn.relu(Z2)
+        tf.summary.histogram("weights", W2)
+        tf.summary.histogram("biases", b2)
+        tf.summary.histogram("activations", A2)
 
+    # Output layer
     with tf.name_scope('output') as scope:
-        W3 = tf.get_variable("W3", [n_h3, n_h2],
-                             initializer=tf.contrib.layers.xavier_initializer())
-        b3 = tf.get_variable("b3", [n_h3, 1],
-                             initializer=tf.zeros_initializer())
+        W3 = tf.get_variable("W3", [n_h3, n_h2], initializer=xavier())
+        b3 = tf.get_variable("b3", [n_h3, 1], initializer=zeros())
         Z3 = tf.matmul(W3, A2) + b3
-        logits = tf.transpose(Z3)
+        logits = tf.transpose(Z3, name="logits")
+        tf.summary.histogram("weights", W3)
+        tf.summary.histogram("biases", b3)
+        tf.summary.histogram("logits", logits)
 
-    logits = tf.transpose(Z3)
     labels = tf.transpose(Y)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits,
+                                                            labels=labels)
+    cost = tf.reduce_mean(cross_entropy, name="cost")
 
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
-    cost = tf.reduce_mean(cross_entropy)
-
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
+    global_step = tf.Variable(0, name='global_step', trainable=False)
+    sgd = tf.train.AdamOptimizer(learning_rate=learning_rate,
+                                 name="gradient-descent")
+    optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
     # Accuracy assessments
     correct_prediction = tf.equal(tf.argmax(Z3), tf.argmax(Y))
@@ -162,8 +176,14 @@ def train(X_train, Y_train, X_test, Y_test):
     logger.info("Training...")
     with tf.Session() as sess:
         sess.run(init)
+        tf.summary.scalar('cost', cost)
 
-        summary_writer = tf.summary.FileWriter(logdir=tensorboard_dir)
+        train_summary = tf.summary.scalar("training_accuracy", accuracy)
+        test_summary = tf.summary.scalar("Test accuracy", accuracy)
+        merged_summary = tf.summary.merge_all()
+
+        writer = tf.summary.FileWriter(logdir=tensorboard_dir)
+        writer.add_graph(sess.graph)
 
         for epoch in range(num_epochs):
             epoch_cost = 0.
@@ -175,23 +195,16 @@ def train(X_train, Y_train, X_test, Y_test):
                 _, mb_cost = sess.run([optimizer, cost], feed_dict={X: mb_X, Y: mb_y})
                 epoch_cost += mb_cost / num_minibatches
 
-            costs.append(epoch_cost)
-
-            # summarize to TensorBoard
-            train_summary = tf.summary.scalar("training_accuracy", accuracy)
-            test_summary = tf.summary.scalar("test_accuracy", accuracy)
+            # Report progress to TensorBoard
             if epoch % 10 == 0:
-                train_acc, train_summ = sess.run(
-                    [accuracy, train_summary],
-                    feed_dict={X: X_train, Y: Y_train})
+                s = sess.run(merged_summary, feed_dict={X: X_train, Y: Y_train})
+                writer.add_summary(s, epoch)
 
-                test_acc, test_summ = sess.run(
-                    [accuracy, test_summary],
-                    feed_dict={X: X_test, Y: Y_test})
-                summary_writer.add_summary(train_summ, epoch)
-                summary_writer.add_summary(test_summ, epoch)
+                test_acc, test_summ = sess.run([accuracy, test_summary],
+                                               feed_dict={X: X_test, Y: Y_test})
+                writer.add_summary(test_summ, epoch)
 
-            # Prints things to console
+            # Report progress to console
             if print_cost and epoch % 100 == 0:
                 train_accuracy = sess.run(accuracy, feed_dict={X: X_train, Y: Y_train})
                 test_accuracy = sess.run(accuracy, feed_dict={X: X_test, Y: Y_test})
@@ -200,12 +213,17 @@ def train(X_train, Y_train, X_test, Y_test):
 
         logger.info("Training complete.")
 
-    # plot the cost
-    plt.plot(np.squeeze(costs))
-    plt.ylabel('cost')
-    plt.xlabel('iterations (per tens)')
-    plt.title("Learning rate =" + str(learning_rate))
-    plt.show()
+        logger.info("Saving model to: %s" % save_file)
+        saver = tf.train.Saver()
+        saver.save(sess, save_file, global_step=global_step)
+        logger.info("Done saving model.")
+
+
+def restore_model():
+
+    with tf.Session as sess:
+        saver = tf.train.import_meta_graph(save_file)
+        saver.restore(sess, tf.train.latest_checkpoint('./'))
 
 
 def parse_args():
