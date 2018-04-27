@@ -73,6 +73,10 @@ def random_mini_batches(X, Y, mini_batch_size=64, seed=0, axis=1):
     else:
         return [(X.T, Y.T) for X, Y in mini_batches]
 
+class ActivationFunction(Enum):
+    relu = 0
+    sigmoid = 1
+    tanh = 2
 
 class OptimizationStrategy(Enum):
     normal = 1
@@ -91,7 +95,9 @@ class HyperParameters(object):
         self.regularize = False
         self.lambd = 1
 
+        # Dropout regularization
         self.dropout = False
+        self.keep_prob = 0.9
 
         # Optimization Parameters
         self.optimization_strategy = OptimizationStrategy.normal
@@ -129,10 +135,15 @@ class HyperParameters(object):
 
 class NeuralNetwork(object):
 
-    def __init__(self, dimensions):
+    def __init__(self, dimensions, layer_types):
+        if len(dimensions) != len(layer_types) + 1:
+            raise ValueError("Layer specification incorrect")
 
-        self.L = len(dimensions)  # number of dimensions
+        # Architecture
         self.dimensions = dimensions
+        self.layer_types = [None] + layer_types
+
+        self.L = len(dimensions) # number of dimensions
 
         # Learning parameters
         self.W = [np.empty((0, 0)) for _ in range(self.L)]
@@ -179,7 +190,7 @@ class NeuralNetwork(object):
 
             for mb_X, mb_Y in random_mini_batches(X, Y,
                                                   mini_batch_size=self.hps.mini_batch_size):
-                AL = self.forward_prop(mb_X)
+                AL = self._forward_prop(mb_X)
 
                 cost = self.compute_cost(AL, mb_Y)
                 costs.append(cost)
@@ -195,7 +206,6 @@ class NeuralNetwork(object):
                     epoch % (self.hps.num_epochs / 100) == 0:
                 accuracy = self.compute_accuracy(self.predict(X), Y)
                 print("Epoch %d\tcost %s\t train accuracy %s" % (epoch, costs[-1], accuracy))
-
         return costs
 
     def predict(self, X):
@@ -204,7 +214,7 @@ class NeuralNetwork(object):
         :param X: Data/features to make predictions on
         :return: The predictions of the model
         """
-        return (self.forward_prop(X) > 0.5).astype(int)
+        return (self._forward_prop(X) > 0.5).astype(int)
 
     def initialize_parameters(self):
         for l in range(1, self.L):
@@ -218,16 +228,27 @@ class NeuralNetwork(object):
             self.W[l] = np.random.randn(self.dimensions[l], self.dimensions[l - 1])
             self.W[l] *= np.sqrt(2 / self.dimensions[l - 1])
 
-    def forward_prop(self, X, keep_prob=1.0):
+    def forward_prop(self, X):
+        A = X
+        for l in range(1, self.L - 1):
+            W, b = self.W[l], self.b[l]
+            Z = np.dot(W, A) + b
+            A = relu(Z)
+        ZL = np.dot(self.W[self.L - 1], A) + self.b[self.L - 1]
+        AL = sigmoid(ZL)
+        return AL
+
+    def _forward_prop(self, X):
         self.A[0] = X
         for l in range(1, self.L - 1):
             W, b = self.W[l], self.b[l]
             self.Z[l] = np.dot(W, self.A[l - 1]) + b
             self.A[l] = relu(self.Z[l])
 
-            # todo: this is broken
-            # self.drop[l] = np.random.rand(self.A[l].shape[0], self.A[l].shape[1]) < keep_prob
-            # self.A[l] = np.multiply(self.A[l], self.drop[l]) / keep_prob
+            if self.hps.dropout:
+                self.drop[l] = np.random.rand(self.A[l].shape[0], self.A[l].shape[1])
+                self.drop[l] = self.drop[l] < self.hps.keep_prob
+                self.A[l] = np.multiply(self.A[l], self.drop[l]) / self.hps.keep_prob
 
         ZL = np.dot(self.W[self.L - 1], self.A[self.L - 2]) + self.b[self.L - 1]
         AL = sigmoid(ZL)
@@ -237,6 +258,8 @@ class NeuralNetwork(object):
         return AL
 
     def back_prop(self, AL, Y):
+
+        # Back-prop for sigmoid layer
         dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
         dZ = sigmoid_backward(dAL, self.Z[self.L - 1])
         dA, dW, db = self.linear_backwards(dZ, self.L - 1)

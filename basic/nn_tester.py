@@ -14,8 +14,10 @@ from sklearn.decomposition import PCA
 from sklearn import linear_model
 import matplotlib.pyplot as plt
 
-from NeuralNetwork import HyperParameters
 from NeuralNetwork import NeuralNetwork
+from NeuralNetwork import HyperParameters
+from NeuralNetwork import ActivationFunction
+
 
 def lasso(X, y):
     lassocv = linear_model.LassoCV()
@@ -121,8 +123,8 @@ def sample(X, y, n_samples):
 
 def main():
     # X, y = load_virus_data()
-    X, y = load_simple_data()
-    # X, y = load_ring_data()
+    # X, y = load_simple_data()
+    X, y = load_ring_data()
 
     # X, y = sample(X, y, 500)
     # X = PCA(n_components=10).fit_transform(X.T).T
@@ -133,14 +135,19 @@ def main():
     print("Features: %d" % X.shape[0])
     nx = X.shape[0]
     ny = y.shape[0]
-    arch = [nx, 50, 8, ny]
-    model = NeuralNetwork(arch)
+    dims = [nx, 50, 8, ny]
+
+    layers = [ActivationFunction.relu,
+              ActivationFunction.relu,
+              ActivationFunction.sigmoid]
+
+    model = NeuralNetwork(dims, layers)
 
     # Hyper-Parameters
     params = HyperParameters()
     params.regularize = True
     params.mini_batch_size = 128
-    params.num_epochs = 20000
+    params.num_epochs = 2000
 
     costs = model.train(X, y, hyper_params=params)
 
