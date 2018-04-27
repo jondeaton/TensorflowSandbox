@@ -73,10 +73,7 @@ def random_mini_batches(X, Y, mini_batch_size=64, seed=0, axis=1):
     else:
         return [(X.T, Y.T) for X, Y in mini_batches]
 
-class ActivationFunction(Enum):
-    relu = 0
-    sigmoid = 1
-    tanh = 2
+
 
 class OptimizationStrategy(Enum):
     normal = 1
@@ -240,37 +237,48 @@ class NeuralNetwork(object):
 
     def _forward_prop(self, X):
         self.A[0] = X
-        for l in range(1, self.L - 1):
-            W, b = self.W[l], self.b[l]
-            self.Z[l] = np.dot(W, self.A[l - 1]) + b
-            self.A[l] = relu(self.Z[l])
+        for l in range(1, self.L):
 
+            # Linear Component
+            self.Z[l] = np.dot(self.W[l], self.A[l - 1]) + self.b[l]
+
+            # Non-linear component
+            if self.layer_types[l] == ActivationFunction.sigmoid:
+                self.A[l] = sigmoid(self.Z[l])
+            elif self.layer_types[l] == ActivationFunction.relu:
+                self.A[l] = relu(self.Z[l])
+            elif self.layer_types[l] == ActivationFunction.tanh:
+                self.A[l] = tanh(self.Z[l])
+            else:
+                raise ValueError("Unknown activation function in layer %d" % l)
+
+            # Dropout
             if self.hps.dropout:
                 self.drop[l] = np.random.rand(self.A[l].shape[0], self.A[l].shape[1])
                 self.drop[l] = self.drop[l] < self.hps.keep_prob
                 self.A[l] = np.multiply(self.A[l], self.drop[l]) / self.hps.keep_prob
 
-        ZL = np.dot(self.W[self.L - 1], self.A[self.L - 2]) + self.b[self.L - 1]
-        AL = sigmoid(ZL)
-
-        self.Z[self.L - 1] = ZL
-        self.A[self.L - 1] = AL
-        return AL
+        return self.A[self.L - 1]
 
     def back_prop(self, AL, Y):
 
-        # Back-prop for sigmoid layer
-        dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
-        dZ = sigmoid_backward(dAL, self.Z[self.L - 1])
-        dA, dW, db = self.linear_backwards(dZ, self.L - 1)
+        # Cost function derivative
+        dA = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
 
-        self.dW[self.L - 1] = dW
-        self.db[self.L - 1] = db
+        for l in reversed(range(1, self.L)):
 
-        dA_prev = dA
-        for l in reversed(range(1, self.L - 1)):
-            dZ = relu_backward(dA_prev, self.Z[l])
-            dA_prev, dW, db = self.linear_backwards(dZ, l)
+            # Non-linear derivatives
+            if self.layer_types[l] == ActivationFunction.sigmoid:
+                dZ = sigmoid_backward(dA, self.Z[l])
+            elif self.layer_types[l] == ActivationFunction.relu:
+                dZ = relu_backward(dA, self.Z[l])
+            elif self.layer_types[l] == ActivationFunction.tanh:
+                dZ = tanh_backward(dA, self.Z[l])
+            else:
+                raise ValueError("Unknown activation function in layer %d" % l)
+
+            # Linear derivative
+            dA, dW, db = self.linear_backwards(dZ, l)
             self.dW[l] = dW
             self.db[l] = db
 

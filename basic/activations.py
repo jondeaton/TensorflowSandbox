@@ -6,21 +6,42 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
 import numpy as np
+from enum import Enum
+
+
+class ActivationFunction(Enum):
+    relu = 0
+    sigmoid = 1
+    tanh = 2
 
 
 def sigmoid(x):
     """
     Compute the sigmoid of x
-    Arguments:
-    x -- A scalar or numpy array of any size.
-    Return:
-    s -- sigmoid(x)
+
+    :param x:  A scalar or numpy array of any size.
+    :return: sigmoid(x)
     """
     return 1 / (1 + np.exp(-x))
 
 
 def relu(x):
+    """
+    Rectified Linear Unit
+
+    :param x: A scalar or numpy array of any size.
+    :return: relu(x)
+    """
     return x * (x > 0)
+
+def tanh(x):
+    """
+    Hyperbolic Tangent
+
+    :param x: A scalar or numpy array of any size.
+    :return: tanh(x)
+    """
+    return np.tanh(x)
 
 
 def relu_backward(dA, Z):
@@ -29,7 +50,7 @@ def relu_backward(dA, Z):
 
     :param dA: post-activation gradient, of any shape
     :param Z: pre-activation value computed in forward prop
-    :return: dZ -- Gradient of the cost with respect to Z
+    :return: Gradient of the cost with respect to Z
     """
     dZ = np.array(dA, copy=True)
     dZ[Z <= 0] = 0
@@ -42,8 +63,21 @@ def sigmoid_backward(dA, Z):
 
     :param dA: post-activation gradient, of any shape
     :param Z: pre-activation value computed in forward prop
-    :return: dZ -- Gradient of the cost with respect to Z
+    :return: Gradient of the cost with respect to Z
     """
-    s = 1 / (1 + np.exp(-Z))
+    s = sigmoid(Z)
     dZ = dA * s * (1 - s)
+    return dZ
+
+
+def tanh_backward(dA, Z):
+    """
+    Backward propagation of a single TANH unit.
+
+    :param dA: post-activation gradient, of any shape
+    :param Z: pre-activation value computed in forward prop
+    :return: Gradient of the cost with respect to Z
+    """
+    s = tanh(Z)
+    dZ = dA * (1 - s ** 2)
     return dZ
