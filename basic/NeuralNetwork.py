@@ -211,7 +211,7 @@ class NeuralNetwork(object):
         :param X: Data/features to make predictions on
         :return: The predictions of the model
         """
-        return (self._forward_prop(X) > 0.5).astype(int)
+        return (self.forward_prop(X) > 0.5).astype(int)
 
     def initialize_parameters(self):
         for l in range(1, self.L):
@@ -226,6 +226,12 @@ class NeuralNetwork(object):
             self.W[l] *= np.sqrt(2 / self.dimensions[l - 1])
 
     def forward_prop(self, X):
+        """
+        Forward propagation without dropout or caching
+
+        :param X: Set of input features for examples
+        :return: Output layer activations
+        """
         A = X
         for l in range(1, self.L - 1):
             W, b = self.W[l], self.b[l]
@@ -236,8 +242,15 @@ class NeuralNetwork(object):
         return AL
 
     def _forward_prop(self, X):
-        self.A[0] = X
+        self.A[0] = np.copy(X)
         for l in range(1, self.L):
+
+            # Dropout
+            if self.hps.dropout:
+                drop = np.random.rand(self.dimensions[l - 1]) > self.hps.keep_prob
+                self.A[l - 1][drop] = 0
+                self.A[l - 1] /= self.hps.keep_prob
+                self.drop[l - 1] = drop
 
             # Linear Component
             self.Z[l] = np.dot(self.W[l], self.A[l - 1]) + self.b[l]
@@ -252,12 +265,6 @@ class NeuralNetwork(object):
             else:
                 raise ValueError("Unknown activation function in layer %d" % l)
 
-            # Dropout
-            if self.hps.dropout:
-                self.drop[l] = np.random.rand(self.A[l].shape[0], self.A[l].shape[1])
-                self.drop[l] = self.drop[l] < self.hps.keep_prob
-                self.A[l] = np.multiply(self.A[l], self.drop[l]) / self.hps.keep_prob
-
         return self.A[self.L - 1]
 
     def back_prop(self, AL, Y):
@@ -266,14 +273,15 @@ class NeuralNetwork(object):
         dA = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
 
         for l in reversed(range(1, self.L)):
+            Z = self.Z[l]
 
             # Non-linear derivatives
             if self.layer_types[l] == ActivationFunction.sigmoid:
-                dZ = sigmoid_backward(dA, self.Z[l])
+                dZ = sigmoid_backward(dA, Z)
             elif self.layer_types[l] == ActivationFunction.relu:
-                dZ = relu_backward(dA, self.Z[l])
+                dZ = relu_backward(dA, Z)
             elif self.layer_types[l] == ActivationFunction.tanh:
-                dZ = tanh_backward(dA, self.Z[l])
+                dZ = tanh_backward(dA, Z)
             else:
                 raise ValueError("Unknown activation function in layer %d" % l)
 
@@ -286,6 +294,7 @@ class NeuralNetwork(object):
         A_prev, W, b = self.A[layer - 1], self.W[layer], self.b[layer]
 
         m = A_prev.shape[1]
+
         dW = np.dot(dZ, A_prev.T) / m
         if self.hps.regularize:
             dW += self.hps.lambd * W / m
@@ -296,8 +305,13 @@ class NeuralNetwork(object):
 
     def parameter_update(self, learning_rate):
         for l in range(1, self.L):
-            self.W[l] -= learning_rate * self.dW[l]
-            self.b[l] -= learning_rate * self.db[l]
+            if self.hps.dropout and l < self.L - 1:
+                keep = np.invert(self.drop[l])
+                self.W[l][keep] -= learning_rate * self.dW[l][keep]
+                self.b[l][keep] -= learning_rate * self.db[l][keep]
+            else:
+                self.W[l] -= learning_rate * self.dW[l]
+                self.b[l] -= learning_rate * self.db[l]
 
     def compute_cost(self, AL, Y):
         cost = - np.sum(Y * np.log(AL) + (1 - Y) * np.log(1 - AL), axis=1) / Y.shape[1]

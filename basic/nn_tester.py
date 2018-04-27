@@ -146,8 +146,9 @@ def main():
     # Hyper-Parameters
     params = HyperParameters()
     params.regularize = True
-    params.mini_batch_size = 128
-    params.num_epochs = 2000
+    params.mini_batch_size = 512
+    params.num_epochs = 20000
+    params.dropout = False
 
     costs = model.train(X, y, hyper_params=params)
 
