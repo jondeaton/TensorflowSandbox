@@ -74,11 +74,8 @@ def random_mini_batches(X, Y, mini_batch_size=64, seed=0, axis=1):
         return [(X.T, Y.T) for X, Y in mini_batches]
 
 
-
 class OptimizationStrategy(Enum):
     normal = 1
-    momentum = 2
-    rmsprop = 3
     adam = 4
 
 
@@ -99,12 +96,17 @@ class HyperParameters(object):
         # Optimization Parameters
         self.optimization_strategy = OptimizationStrategy.normal
 
-        self.num_epochs = 10000
         self.initial_learning_rate = 0.075
-        self.min_learning_rate = 0.001
-
         self.learning_rate = self.initial_learning_rate
         self.learning_rate_decay = 0.0009
+        self.min_learning_rate = 0.001
+
+        # Adam Optimization Parameters
+        self.beta1 = 0.9
+        self.beta2 = 0.999
+        self.adam_epsilon = 10E-8
+
+        self.num_epochs = 10000
 
         def default_learning_rate_decay_function(lr, epoch):
             initial = self.initial_learning_rate
@@ -113,10 +115,6 @@ class HyperParameters(object):
             return max(self.min_learning_rate, new_lr)
 
         self.learning_rate_decay_function = default_learning_rate_decay_function
-
-        # Adam Optimization Parameters
-        self.beta1 = 0.9
-        self.beta2 = 0.999
 
         # Batch Normalization
         self.batch_norm = False
@@ -153,10 +151,17 @@ class NeuralNetwork(object):
         self.dW = [np.empty((0, 0)) for _ in range(self.L)]
         self.db = [np.empty((0, 0)) for _ in range(self.L)]
 
-        self.drop = [np.empty((0, 0)) for _ in range(self.L)]
-
         # Hyper-parameters
         self.hps = HyperParameters()
+
+        if self.hps.dropout:
+            self.drop = [np.empty((0, 0)) for _ in range(self.L)]
+
+        self.adam = self.hps.optimization_strategy == OptimizationStrategy.adam
+        self.VdW = [np.empty((0, 0)) for _ in range(self.L)]
+        self.Vdb = [np.empty((0, 0)) for _ in range(self.L)]
+        self.SdW = [np.empty((0, 0)) for _ in range(self.L)]
+        self.Sdb = [np.empty((0, 0)) for _ in range(self.L)]
 
     def train(self, X, Y, hyper_params=None):
         """
@@ -180,6 +185,9 @@ class NeuralNetwork(object):
         if Y.shape[0] != 1:
             raise ValueError("Shape of Y %s, doesn't start with 1" % Y.shape)
 
+        # Remember optimization strategy
+        self.adam = self.hps.optimization_strategy == OptimizationStrategy.adam
+
         costs = []
         self.initialize_parameters()
 
@@ -193,7 +201,7 @@ class NeuralNetwork(object):
                 costs.append(cost)
 
                 self.back_prop(AL, mb_Y)
-                self.parameter_update(self.hps.learning_rate)
+                self.parameter_update(self.hps.learning_rate, )
 
             # Update the learning rate!
             self.hps.update_learning_rate(epoch)
@@ -225,6 +233,14 @@ class NeuralNetwork(object):
             self.W[l] = np.random.randn(self.dimensions[l], self.dimensions[l - 1])
             self.W[l] *= np.sqrt(2 / self.dimensions[l - 1])
 
+            # Adam Parameter Initialization
+            if self.adam:
+                self.VdW[l] = np.zeros((self.dimensions[l], self.dimensions[l - 1]))
+                self.Vdb[l] = np.zeros((self.dimensions[l], 1))
+                self.SdW[l] = np.zeros((self.dimensions[l], self.dimensions[l - 1]))
+                self.Sdb[l] = np.zeros((self.dimensions[l], 1))
+        self.t = 1
+
     def forward_prop(self, X):
         """
         Forward propagation without dropout or caching
@@ -242,6 +258,14 @@ class NeuralNetwork(object):
         return AL
 
     def _forward_prop(self, X):
+        """
+        Forward propagation during training
+
+        Uses caching and dropout
+        :param X: Feature matrix
+        :return: Activation at the output layer
+        """
+
         self.A[0] = np.copy(X)
         for l in range(1, self.L):
 
@@ -305,13 +329,43 @@ class NeuralNetwork(object):
 
     def parameter_update(self, learning_rate):
         for l in range(1, self.L):
+
+            # Adaptive optimization
+            if self.hps.optimization_strategy == OptimizationStrategy.adam:
+                b1 = self.hps.beta1
+                b2 = self.hps.beta2
+
+                # Momentum term
+                self.VdW[l] = b1 * self.VdW[l] + (1 - b1) * self.dW[l]
+                self.Vdb[l] = b1 * self.Vdb[l] + (1 - b1) * self.db[l]
+
+                # RMS-prop term
+                self.SdW[l] = b2 * self.SdW[l] + (1 - b2) * np.square(self.dW[l])
+                self.Sdb[l] = b2 * self.Sdb[l] + (1 - b2) * np.square(self.db[l])
+
+                # Exponential weighting correction
+                VdW_c = self.VdW[l] / (1 - pow(b1, self.t))
+                Vdb_c = self.Vdb[l] / (1 - pow(b1, self.t))
+                SdW_c = self.SdW[l] / (1 - pow(b2, self.t))
+                Sdb_c = self.Sdb[l] / (1 - pow(b2, self.t))
+
+                dW_update = VdW_c / np.sqrt(SdW_c + self.hps.adam_epsilon)
+                db_update = Vdb_c / np.sqrt(Sdb_c + self.hps.adam_epsilon)
+
+            else:
+                # Normal (Stochastic) Gradient Descent
+                dW_update = self.dW[l]
+                db_update = self.db[l]
+
             if self.hps.dropout and l < self.L - 1:
                 keep = np.invert(self.drop[l])
-                self.W[l][keep] -= learning_rate * self.dW[l][keep]
-                self.b[l][keep] -= learning_rate * self.db[l][keep]
+                self.W[l][keep] -= learning_rate * dW_update[keep]
+                self.b[l][keep] -= learning_rate * db_update[keep]
             else:
-                self.W[l] -= learning_rate * self.dW[l]
-                self.b[l] -= learning_rate * self.db[l]
+                self.W[l] -= learning_rate * dW_update
+                self.b[l] -= learning_rate * db_update
+
+        self.t += 1.0
 
     def compute_cost(self, AL, Y):
         cost = - np.sum(Y * np.log(AL) + (1 - Y) * np.log(1 - AL), axis=1) / Y.shape[1]

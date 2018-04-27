@@ -6,17 +6,17 @@ Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
 import os
+
 import numpy as np
-
 from numpy.linalg import norm
-
 from sklearn.decomposition import PCA
 from sklearn import linear_model
 import matplotlib.pyplot as plt
 
+from activations import ActivationFunction
 from NeuralNetwork import NeuralNetwork
 from NeuralNetwork import HyperParameters
-from NeuralNetwork import ActivationFunction
+from NeuralNetwork import OptimizationStrategy
 
 
 def lasso(X, y):
@@ -50,6 +50,7 @@ def load_virus_data(virus_file="~/Datasets/viruses/virus.kmer", bacteria_file="~
     Y = np.concatenate((Y_vir, Y_bac), axis=1).astype(int)
 
     return X, Y
+
 
 
 def load_simple_data():
@@ -123,8 +124,8 @@ def sample(X, y, n_samples):
 
 def main():
     # X, y = load_virus_data()
-    # X, y = load_simple_data()
-    X, y = load_ring_data()
+    X, y = load_simple_data()
+    # X, y = load_ring_data()
 
     # X, y = sample(X, y, 500)
     # X = PCA(n_components=10).fit_transform(X.T).T
@@ -149,6 +150,7 @@ def main():
     params.mini_batch_size = 512
     params.num_epochs = 20000
     params.dropout = False
+    params.optimization_strategy = OptimizationStrategy.adam
 
     costs = model.train(X, y, hyper_params=params)
 
