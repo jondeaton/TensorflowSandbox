@@ -14,6 +14,7 @@ from sklearn.decomposition import PCA
 from sklearn import linear_model
 import matplotlib.pyplot as plt
 
+from NeuralNetwork import HyperParameters
 from NeuralNetwork import NeuralNetwork
 
 def lasso(X, y):
@@ -135,10 +136,13 @@ def main():
     arch = [nx, 50, 8, ny]
     model = NeuralNetwork(arch)
 
-    costs = model.train(X, y,
-                        iterations=10000,
-                        learning_rate=0.002,
-                        regularize=True)
+    # Hyper-Parameters
+    params = HyperParameters()
+    params.regularize = True
+    params.mini_batch_size = 128
+    params.num_epochs = 20000
+
+    costs = model.train(X, y, hyper_params=params)
 
     plot_decision_boundary(model.predict, X, y)
 
