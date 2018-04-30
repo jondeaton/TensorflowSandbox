@@ -5,10 +5,5 @@ Date: 4/24/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 """
 
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)

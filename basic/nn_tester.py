@@ -123,14 +123,14 @@ def sample(X, y, n_samples):
 
 
 def main():
-    # X, y = load_virus_data()
-    X, y = load_simple_data()
+    X, y = load_virus_data()
+    # X, y = load_simple_data()
     # X, y = load_ring_data()
 
     # X, y = sample(X, y, 500)
     # X = PCA(n_components=10).fit_transform(X.T).T
 
-    # X, y = lasso(X, y)
+    X, y = lasso(X, y)
     # show_data(X, y)
 
     print("Features: %d" % X.shape[0])
@@ -146,11 +146,13 @@ def main():
 
     # Hyper-Parameters
     params = HyperParameters()
-    params.regularize = True
+    params.regularize =True
     params.mini_batch_size = 512
     params.num_epochs = 20000
     params.dropout = False
+
     params.optimization_strategy = OptimizationStrategy.adam
+    params.initial_learning_rate = 0.001
 
     costs = model.train(X, y, hyper_params=params)
 

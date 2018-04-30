@@ -5,8 +5,11 @@ Date: 4/24/18
 Author: Jon Deaton (jdeaton@stanford.edu)
 
 Adapted from Andrew Ng's deep learning Coursera Course
-
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import os, sys
 import argparse
@@ -19,56 +22,14 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 
 from tensorflow.python.framework import ops
-from tf_utils import load_dataset, random_mini_batches, convert_to_one_hot, predict
 
+from SIGNS.tf_utils import *
+from SIGNS.cnn_utils import *
 
 logger = logging.getLogger()
 
 tensorboard_dir = "tensorboard/job_signs_%s" % time.time()
 save_file = "./trained_model.ckpt-data"
-
-def lazy_property(function):
-    # from: https://danijar.com/structuring-your-tensorflow-models/
-    attribute = '_cache_' + function.__name__
-
-    @property
-    @functools.wraps(function)
-    def decorator(self):
-        if not hasattr(self, attribute):
-            setattr(self, attribute, function(self))
-        return getattr(self, attribute)
-
-    return decorator
-
-
-def define_scope(function):
-    # from: https://danijar.com/structuring-your-tensorflow-models/
-    attribute = '_cache_' + function.__name__
-
-    @property
-    @functools.wraps(function)
-    def decorator(self):
-        if not hasattr(self, attribute):
-            with tf.variable_scope(function.__name):
-                setattr(self, attribute, function(self))
-        return getattr(self, attribute)
-
-    return decorator
-
-
-class SignsModel:
-
-    def __init__(self):
-        self.data = None
-        self.target = None
-
-    @lazy_property
-    def cost(self):
-        pass
-
-    @lazy_property
-    def prediction(self):
-        pass
 
 
 def load_SNIGNS():
@@ -100,26 +61,114 @@ def load_SNIGNS():
     return X_train, Y_train, X_test, Y_test
 
 
-def train(X_train, Y_train, X_test, Y_test):
-    # Number of features and categories
-    n_x, m = X_train.shape
-    n_y = Y_train.shape[0]
+def cnn_model(X, Y):
+    n_x = X.shape[0]
+    n_y = Y.shape[0]
 
-    n_h = (25, 12, 6)
+    # # conv1
+    # with tf.variable_scope('conv1') as scope:
+    #     kernel = _variable_with_weight_decay('weights',
+    #                                          shape=[5, 5, 3, 64],
+    #                                          stddev=5e-2,
+    #                                          wd=None)
+    #     conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
+    #     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
+    #     pre_activation = tf.nn.bias_add(conv, biases)
+    #     conv1 = tf.nn.relu(pre_activation, name=scope.name)
+    #     _activation_summary(conv1)
+    #
+    # # pool1
+    # pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],
+    #                        padding='SAME', name='pool1')
+    # # norm1
+    # norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
+    #                   name='norm1')
+    #
+    # # conv2
+    # with tf.variable_scope('conv2') as scope:
+    #     kernel = _variable_with_weight_decay('weights',
+    #                                          shape=[5, 5, 64, 64],
+    #                                          stddev=5e-2,
+    #                                          wd=None)
+    #     conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
+    #     biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
+    #     pre_activation = tf.nn.bias_add(conv, biases)
+    #     conv2 = tf.nn.relu(pre_activation, name=scope.name)
+    #     _activation_summary(conv2)
+    #
+    # # norm2
+    # norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
+    #                   name='norm2')
+    # # pool2
+    # pool2 = tf.nn.max_pool(norm2, ksize=[1, 3, 3, 1],
+    #                        strides=[1, 2, 2, 1], padding='SAME', name='pool2')
+    #
+    # # local3
+    # with tf.variable_scope('local3') as scope:
+    #     # Move everything into depth so we can perform a single matrix multiply.
+    #     reshape = tf.reshape(pool2, [images.get_shape().as_list()[0], -1])
+    #     dim = reshape.get_shape()[1].value
+    #     weights = _variable_with_weight_decay('weights', shape=[dim, 384],
+    #                                           stddev=0.04, wd=0.004)
+    #     biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
+    #     local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
+    #     _activation_summary(local3)
+    #
+    # # local4
+    # with tf.variable_scope('local4') as scope:
+    #     weights = _variable_with_weight_decay('weights', shape=[384, 192],
+    #                                           stddev=0.04, wd=0.004)
+    #     biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
+    #     local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
+    #     _activation_summary(local4)
+    #
+    # # linear layer(WX + b),
+    # # We don't apply softmax here because
+    # # tf.nn.sparse_softmax_cross_entropy_with_logits accepts the unscaled logits
+    # # and performs the softmax internally for efficiency.
+    # with tf.variable_scope('softmax_linear') as scope:
+    #     weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
+    #                                           stddev=1 / 192.0, wd=None)
+    #     biases = _variable_on_cpu('biases', [NUM_CLASSES],
+    #                               tf.constant_initializer(0.0))
+    #     softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
+    #     _activation_summary(softmax_linear)
+    #
+    # return softmax_linear
+
+
+def highlevel_model(X, Y, n_h):
+    """
+    Create a high-level model to train
+
+    :param X_train: Features for training data
+    :param Y_train: Labels for training data
+    :param X_test: Features for test data
+    :param Y_test: Labels for test data
+    :return: None
+    """
+    # Number of features and categories
+    n_x = X.shape[0]
+    n_y = Y.shape[0]
     n_h1, n_h2, n_h3 = n_h
 
-    learning_rate = 0.0001
-    num_epochs = 1500
-    mini_batch_size = 32
-    print_cost = True
-    costs = []
+    X_T = tf.transpose(X)
 
-    logger.info("Creating computation graph...")
-    # computation graph
-    ops.reset_default_graph()
+    with tf.variable_scope('hidden_1') as scope:
+        h1 = tf.layers.dense(inputs=X_T, units=25, activation=tf.nn.relu, name=scope.name)
 
-    X = tf.placeholder(tf.float32, shape=(n_x, None))
-    Y = tf.placeholder(tf.float32, shape=(n_y, None))
+    with tf.variable_scope("hidden_2") as scope:
+        h2 = tf.layers.dense(inputs=h1, units=12, activation=tf.nn.relu, name=scope.name)
+
+    with tf.variable_scope("output") as scope:
+        logits = tf.layers.dense(inputs=h2, units=6, activation=tf.nn.softmax, name=scope.name)
+
+    return logits
+
+def simple_model(X, Y, n_h):
+    n_x = X.shape[0]
+    n_y = Y.shape[0]
+    n_h1, n_h2, n_h3 = n_h
 
     def xavier():
         return tf.contrib.layers.xavier_initializer()
@@ -140,7 +189,7 @@ def train(X_train, Y_train, X_test, Y_test):
     # Second hidden layer
     with tf.name_scope('h2') as scope:
         W2 = tf.get_variable("W2", [n_h2, n_h1], initializer=xavier())
-        b2 = tf.get_variable("b2", [n_h2, 1],initializer=zeros())
+        b2 = tf.get_variable("b2", [n_h2, 1], initializer=zeros())
         Z2 = tf.matmul(W2, A1) + b2
         A2 = tf.nn.relu(Z2)
         tf.summary.histogram("weights", W2)
@@ -157,18 +206,45 @@ def train(X_train, Y_train, X_test, Y_test):
         tf.summary.histogram("biases", b3)
         tf.summary.histogram("logits", logits)
 
+    return tf.transpose(logits)
+
+
+def train(X_train, Y_train, X_test, Y_test):
+    """
+    Train the model with simple construction
+
+    :param X_train: Features for training data
+    :param Y_train: Labels for training data
+    :param X_test: Features for test data
+    :param Y_test: Labels for test data
+    :return: Array of costs
+    """
+
+    # Number of features and categories
+    n_x, m = X_train.shape
+    n_y = Y_train.shape[0]
+
+    n_h = (25, 12, 6)
+    n_h1, n_h2, n_h3 = n_h
+
+    logger.info("Creating computation graph...")
+    ops.reset_default_graph()
+    X = tf.placeholder(tf.float32, shape=(n_x, None))
+    Y = tf.placeholder(tf.float32, shape=(n_y, None))
+
+    logits = highlevel_model(X, Y, n_h)
+
     labels = tf.transpose(Y)
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits,
                                                             labels=labels)
     cost = tf.reduce_mean(cross_entropy, name="cost")
 
     global_step = tf.Variable(0, name='global_step', trainable=False)
-    sgd = tf.train.AdamOptimizer(learning_rate=learning_rate,
-                                 name="gradient-descent")
+    sgd = tf.train.AdamOptimizer(learning_rate=learning_rate, name="gradient-descent")
     optimizer = sgd.minimize(cost, name='optimizer', global_step=global_step)
 
     # Accuracy assessments
-    correct_prediction = tf.equal(tf.argmax(Z3), tf.argmax(Y))
+    correct_prediction = tf.equal(tf.argmax(logits), tf.argmax(Y))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 
     init = tf.global_variables_initializer()
@@ -178,7 +254,7 @@ def train(X_train, Y_train, X_test, Y_test):
         sess.run(init)
         tf.summary.scalar('cost', cost)
 
-        train_summary = tf.summary.scalar("training_accuracy", accuracy)
+        tf.summary.scalar("training_accuracy", accuracy)
         test_summary = tf.summary.scalar("Test accuracy", accuracy)
         merged_summary = tf.summary.merge_all()
 
@@ -197,15 +273,16 @@ def train(X_train, Y_train, X_test, Y_test):
 
             # Report progress to TensorBoard
             if epoch % 10 == 0:
-                s = sess.run(merged_summary, feed_dict={X: X_train, Y: Y_train})
-                writer.add_summary(s, epoch)
+                pass
+                # s = sess.run(merged_summary, feed_dict={X: X_train, Y: Y_train})
+                # writer.add_summary(s, epoch)
 
-                test_acc, test_summ = sess.run([accuracy, test_summary],
-                                               feed_dict={X: X_test, Y: Y_test})
-                writer.add_summary(test_summ, epoch)
+                # test_acc, test_summ = sess.run([accuracy, test_summary],
+                #                                feed_dict={X: X_test, Y: Y_test})
+                # writer.add_summary(test_summ, epoch)
 
             # Report progress to console
-            if print_cost and epoch % 100 == 0:
+            if epoch % 100 == 0:
                 train_accuracy = sess.run(accuracy, feed_dict={X: X_train, Y: Y_train})
                 test_accuracy = sess.run(accuracy, feed_dict={X: X_test, Y: Y_test})
                 logger.info("Epoch %d:\tcost:\t%f,\t%f train,\t%f test" %
@@ -219,7 +296,11 @@ def train(X_train, Y_train, X_test, Y_test):
         logger.info("Done saving model.")
 
 
-def restore_model():
+def restore_model(save_file):
+    """
+    Restores the model that was saved to file after training
+    :return: None
+    """
 
     with tf.Session as sess:
         saver = tf.train.import_meta_graph(save_file)
@@ -240,11 +321,14 @@ def parse_args():
     info_options_group.add_argument("-cloud", "--cloud", action="store_true", help="Set true if running in cloud")
 
     io_options_group = parser.add_argument_group("I/O")
-    io_options_group.add_argument("--virus-file", help="Virus k-mer counts")
-    io_options_group.add_argument("--bacteria-file", help="Bacteria k-mer counts")
+    io_options_group.add_argument("--save-file", help="File to save trained model in")
+
+    hyper_params_group = parser.add_argument_group("Hyper-Parameters")
+    hyper_params_group.add_argument("-l", "--learning-rate", type=float, default=0.0001, help="Learning rate")
+    hyper_params_group.add_argument("-e", "--epochs", type=int, default=1500, help="Number of training epochs")
+    hyper_params_group.add_argument("-mb", "--mini-batch", type=int, default=128, help="Mini-batch size")
 
     options_group = parser.add_argument_group("General")
-    options_group.add_argument("--simple", action="store_true", help="Run the simple way")
     options_group.add_argument("-i", "--iterations", type=int, default=1000, help="Number of iterations")
     options_group.add_argument('-p', '--pool-size', type=int, default=20, help="Thread-pool size")
 
@@ -254,6 +338,7 @@ def parse_args():
 
     args = parser.parse_args()
 
+    # Setup the logger
     global logger
     logger = logging.getLogger('root')
 
@@ -281,6 +366,20 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    if args.cloud:
+        logger.info("Running on Google Cloud.")
+    else:
+        logger.debug("Running locally.")
+
+    global learning_rate, num_epochs, mini_batch_size
+    learning_rate = args.learning_rate
+    num_epochs = args.epochs
+    mini_batch_size = args.mini_batch
+
+    logger.info("Learning rate: %s" % learning_rate)
+    logger.info("Num epochs: %s" % num_epochs)
+    logger.info("Mini-batch size: %s" % mini_batch_size)
 
     logger.info("Loading SIGNS data-set...")
     X_train, Y_train, X_test, Y_test = load_SNIGNS()
