@@ -28,9 +28,6 @@ from SIGNS.cnn_utils import *
 
 logger = logging.getLogger()
 
-tensorboard_dir = "tensorboard/job_signs_%s" % time.time()
-save_file = "./trained_model.ckpt-data"
-
 
 def load_SNIGNS():
     """
@@ -44,7 +41,7 @@ def load_SNIGNS():
     :return: X_train, Y_train, X_test, Y_test
     """
 
-    X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, classes = load_dataset()
+    X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, classes = load_dataset(dir=dataset_dir)
 
     # Flatten the training and test images
     X_train_flatten = X_train_orig.reshape(X_train_orig.shape[0], -1).T
@@ -236,8 +233,7 @@ def train(X_train, Y_train, X_test, Y_test):
 
     # labels = tf.transpose(Y)
     labels = Y
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits,
-                                                            labels=labels)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)
     cost = tf.reduce_mean(cross_entropy, name="cost")
 
     global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -264,13 +260,12 @@ def train(X_train, Y_train, X_test, Y_test):
 
         for epoch in range(num_epochs):
             epoch_cost = 0.
-            num_minibatches = int(m / mini_batch_size)
+            num_mini_batches = int(m / mini_batch_size)
 
             batches = random_mini_batches(X_train, Y_train, mini_batch_size=mini_batch_size)
-            mb_cost = 0
             for mb_X, mb_y in batches:
                 _, mb_cost = sess.run([optimizer, cost], feed_dict={X: mb_X, Y: mb_y})
-                epoch_cost += mb_cost / num_minibatches
+                epoch_cost += mb_cost / num_mini_batches
 
             # Report progress to TensorBoard
             if epoch % 10 == 0:
@@ -316,9 +311,11 @@ def parse_args():
 
     info_options_group = parser.add_argument_group("Info")
     info_options_group.add_argument("--job-dir", default=None, help="Job directory")
+    info_options_group.add_argument("--job-name", default="signs", help="Job name")
     info_options_group.add_argument("-cloud", "--cloud", action="store_true", help="Set true if running in cloud")
 
     io_options_group = parser.add_argument_group("I/O")
+
     io_options_group.add_argument("--save-file", help="File to save trained model in")
     io_options_group.add_argument("--tensorboard", help="TensorBoard directory")
 
@@ -367,17 +364,26 @@ def main():
     else:
         logger.debug("Running locally.")
 
+    logger.info("Loading SIGNS data-set...")
+    X_train, Y_train, X_test, Y_test = load_SNIGNS()
+    logger.info("Data-set loaded.")
+
+    global tensorboard_dir, save_file, dataset_dir
+    tensorboard_dir = args.tensorboard
+    save_file = args.save_file
+    dataset_dir = args.dataset_dir
+
+    try:
+        os.mkdir(tensorboard_dir)
+    except FileExistsError:
+        pass
+
     global learning_rate, num_epochs, mini_batch_size
     learning_rate = args.learning_rate
     num_epochs = args.epochs
     mini_batch_size = args.mini_batch
 
-    logger.info("Loading SIGNS data-set...")
-    X_train, Y_train, X_test, Y_test = load_SNIGNS()
-    logger.info("Data-set loaded.")
-
     logger.info("Training...")
-
     logger.info("Learning rate: %s" % learning_rate)
     logger.info("Num epochs: %s" % num_epochs)
     logger.info("Mini-batch size: %s" % mini_batch_size)
