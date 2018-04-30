@@ -163,7 +163,8 @@ def highlevel_model(X, Y, n_h):
     with tf.variable_scope("output") as scope:
         logits = tf.layers.dense(inputs=h2, units=6, activation=tf.nn.softmax, name=scope.name)
 
-    return logits
+    return tf.transpose(logits)
+
 
 def simple_model(X, Y, n_h):
     n_x = X.shape[0]
@@ -206,7 +207,7 @@ def simple_model(X, Y, n_h):
         tf.summary.histogram("biases", b3)
         tf.summary.histogram("logits", logits)
 
-    return tf.transpose(logits)
+    return logits
 
 
 def train(X_train, Y_train, X_test, Y_test):
@@ -225,7 +226,6 @@ def train(X_train, Y_train, X_test, Y_test):
     n_y = Y_train.shape[0]
 
     n_h = (25, 12, 6)
-    n_h1, n_h2, n_h3 = n_h
 
     logger.info("Creating computation graph...")
     ops.reset_default_graph()
@@ -234,7 +234,8 @@ def train(X_train, Y_train, X_test, Y_test):
 
     logits = highlevel_model(X, Y, n_h)
 
-    labels = tf.transpose(Y)
+    # labels = tf.transpose(Y)
+    labels = Y
     cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits,
                                                             labels=labels)
     cost = tf.reduce_mean(cross_entropy, name="cost")
@@ -273,13 +274,11 @@ def train(X_train, Y_train, X_test, Y_test):
 
             # Report progress to TensorBoard
             if epoch % 10 == 0:
-                pass
-                # s = sess.run(merged_summary, feed_dict={X: X_train, Y: Y_train})
-                # writer.add_summary(s, epoch)
+                s = sess.run(merged_summary, feed_dict={X: X_train, Y: Y_train})
+                writer.add_summary(s, epoch)
 
-                # test_acc, test_summ = sess.run([accuracy, test_summary],
-                #                                feed_dict={X: X_test, Y: Y_test})
-                # writer.add_summary(test_summ, epoch)
+                test_acc, test_summ = sess.run([accuracy, test_summary], feed_dict={X: X_test, Y: Y_test})
+                writer.add_summary(test_summ, epoch)
 
             # Report progress to console
             if epoch % 100 == 0:
@@ -287,7 +286,6 @@ def train(X_train, Y_train, X_test, Y_test):
                 test_accuracy = sess.run(accuracy, feed_dict={X: X_test, Y: Y_test})
                 logger.info("Epoch %d:\tcost:\t%f,\t%f train,\t%f test" %
                             (epoch, epoch_cost, train_accuracy, test_accuracy))
-
         logger.info("Training complete.")
 
         logger.info("Saving model to: %s" % save_file)
@@ -322,15 +320,12 @@ def parse_args():
 
     io_options_group = parser.add_argument_group("I/O")
     io_options_group.add_argument("--save-file", help="File to save trained model in")
+    io_options_group.add_argument("--tensorboard", help="TensorBoard directory")
 
     hyper_params_group = parser.add_argument_group("Hyper-Parameters")
     hyper_params_group.add_argument("-l", "--learning-rate", type=float, default=0.0001, help="Learning rate")
     hyper_params_group.add_argument("-e", "--epochs", type=int, default=1500, help="Number of training epochs")
     hyper_params_group.add_argument("-mb", "--mini-batch", type=int, default=128, help="Mini-batch size")
-
-    options_group = parser.add_argument_group("General")
-    options_group.add_argument("-i", "--iterations", type=int, default=1000, help="Number of iterations")
-    options_group.add_argument('-p', '--pool-size', type=int, default=20, help="Thread-pool size")
 
     logging_options_group = parser.add_argument_group("Logging")
     logging_options_group.add_argument('--log', dest="log_level", default="WARNING", help="Logging level")
@@ -377,13 +372,15 @@ def main():
     num_epochs = args.epochs
     mini_batch_size = args.mini_batch
 
-    logger.info("Learning rate: %s" % learning_rate)
-    logger.info("Num epochs: %s" % num_epochs)
-    logger.info("Mini-batch size: %s" % mini_batch_size)
-
     logger.info("Loading SIGNS data-set...")
     X_train, Y_train, X_test, Y_test = load_SNIGNS()
     logger.info("Data-set loaded.")
+
+    logger.info("Training...")
+
+    logger.info("Learning rate: %s" % learning_rate)
+    logger.info("Num epochs: %s" % num_epochs)
+    logger.info("Mini-batch size: %s" % mini_batch_size)
 
     train(X_train, Y_train, X_test, Y_test)
 
