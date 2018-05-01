@@ -19,12 +19,19 @@ import time
 
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 from tensorflow.python.framework import ops
 
 from SIGNS.tf_utils import *
 from SIGNS.cnn_utils import *
+
+# Global Variables
+data_set_dir = None
+tensorboard_dir = None
+save_file = None
+learning_rate = None
+num_epochs = None
+mini_batch_size = None
 
 logger = logging.getLogger()
 
@@ -41,7 +48,7 @@ def load_SNIGNS():
     :return: X_train, Y_train, X_test, Y_test
     """
 
-    X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, classes = load_dataset(dir=dataset_dir)
+    X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, classes = load_dataset(dir=data_set_dir)
 
     # Flatten the training and test images
     X_train_flatten = X_train_orig.reshape(X_train_orig.shape[0], -1).T
@@ -312,10 +319,11 @@ def parse_args():
     info_options_group = parser.add_argument_group("Info")
     info_options_group.add_argument("--job-dir", default=None, help="Job directory")
     info_options_group.add_argument("--job-name", default="signs", help="Job name")
-    info_options_group.add_argument("-cloud", "--cloud", action="store_true", help="Set true if running in cloud")
+    info_options_group.add_argument("-gcs", "--google-cloud", action='store_true', help="Running in Google Cloud")
+    info_options_group.add_argument("-aws", "--aws", action="store_true", help="Running in Amazon Web Services")
 
     io_options_group = parser.add_argument_group("I/O")
-
+    io_options_group.add_argument("--dataset-dir", help="Input dataset")
     io_options_group.add_argument("--save-file", help="File to save trained model in")
     io_options_group.add_argument("--tensorboard", help="TensorBoard directory")
 
@@ -342,9 +350,10 @@ def parse_args():
     log_formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
 
     # For the log file...
-    file_handler = logging.FileHandler(args.log_file)
-    file_handler.setFormatter(log_formatter)
-    logger.addHandler(file_handler)
+    if not args.google_cloud:
+        file_handler = logging.FileHandler(args.log_file)
+        file_handler.setFormatter(log_formatter)
+        logger.addHandler(file_handler)
 
     # For the console
     console_handler = logging.StreamHandler(sys.stdout)
@@ -359,36 +368,38 @@ def parse_args():
 def main():
     args = parse_args()
 
-    if args.cloud:
+    if args.google_cloud:
         logger.info("Running on Google Cloud.")
+    elif args.aws:
+        logger.info("Running in Amazon Web Services.")
     else:
         logger.debug("Running locally.")
 
-    logger.info("Loading SIGNS data-set...")
-    X_train, Y_train, X_test, Y_test = load_SNIGNS()
-    logger.info("Data-set loaded.")
-
-    global tensorboard_dir, save_file, dataset_dir
+    global tensorboard_dir, save_file, data_set_dir
+    data_set_dir = args.dataset_dir
     tensorboard_dir = args.tensorboard
     save_file = args.save_file
-    dataset_dir = args.dataset_dir
 
-    try:
-        os.mkdir(tensorboard_dir)
-    except FileExistsError:
-        pass
+    logger.debug("Data-set Directory: %s" % data_set_dir)
+    logger.debug("TensorBoard Directory: %s" % tensorboard_dir)
+    logger.debug("Save file: %s" % save_file)
+
 
     global learning_rate, num_epochs, mini_batch_size
     learning_rate = args.learning_rate
     num_epochs = args.epochs
     mini_batch_size = args.mini_batch
 
-    logger.info("Training...")
     logger.info("Learning rate: %s" % learning_rate)
     logger.info("Num epochs: %s" % num_epochs)
     logger.info("Mini-batch size: %s" % mini_batch_size)
 
+    logger.info("Loading SIGNS data-set...")
+    X_train, Y_train, X_test, Y_test = load_SNIGNS()
+    logger.info("Data-set loaded.")
+
     train(X_train, Y_train, X_test, Y_test)
+
 
 
 if __name__ == "__main__":

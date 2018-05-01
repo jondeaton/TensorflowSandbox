@@ -10,6 +10,6 @@ setup(name='trainer',
       install_requires=[
           "tensorflow",
           "numpy",
-          ""
+          "h5py"
       ],
       zip_safe=False)

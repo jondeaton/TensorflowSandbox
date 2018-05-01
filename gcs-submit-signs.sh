@@ -34,9 +34,10 @@ gcloud ml-engine jobs submit training "$job_name" \
     -- \
     --job-name "$job_name" \
     --tensorboard "$tensorboard_dir" \
+    --dataset-dir "$dataset_dir" \
     --learning-rate "0.0001" \
     --epochs 1500 \
     --mini-batch 512 \
     --log=DEBUG \
     --log-file "$log_file" \
-    --cloud
+    --google-cloud
